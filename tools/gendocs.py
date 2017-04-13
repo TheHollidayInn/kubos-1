@@ -4,19 +4,19 @@ import subprocess
 import os
 
 GENERATE_TAGS = """
-(cat {0}; 
-echo "PROJECT_NUMBER={1}";
-echo "OUTPUT_DIRECTORY={2}";
+(cat docs/Doxyfile; 
+echo "PROJECT_NUMBER={0}";
+echo "OUTPUT_DIRECTORY={1}";
 echo "GENERATE_HTML=NO";
-echo "GENERATE_TAGFILE={3}/output.tag"
+echo "GENERATE_TAGFILE={2}/output.tag"
 echo "EXCLUDE=source test";) | doxygen -"""
 
 GENERATE_HTML = """
-(cat {0}; 
-echo "PROJECT_NUMBER={1}";
-echo "OUTPUT_DIRECTORY={2}";
+(cat docs/Doxyfile; 
+echo "PROJECT_NUMBER={0}";
+echo "OUTPUT_DIRECTORY={1}";
 echo "GENERATE_HTML=YES";
-echo "TAGFILES={3}";
+echo "TAGFILES={2}";
 echo "HTML_OUTPUT=.";
 echo "EXCLUDE=source test";
 echo "EXTERNAL_GROUPS=NO";
@@ -41,22 +41,23 @@ DOCS_DIRS = [
 "telemetry-storage",
 "ipc"]
 
-def make_tags_str(dir, doc_tags):
+def make_tags_str(dir, doc_dir, doc_tags):
     tags_str = ""
     for _dir, _tag in doc_tags.iteritems():
         if _dir != dir:
-            tags_str += _tag + " \\\n"
+            rel_tag_dir = os.path.relpath(_tag, os.path.join(os.getcwd(), dir))
+            rel_html_dir = os.path.relpath(_tag, doc_dir)
+            tags_str += DOC_TAG_DIR.format(rel_tag_dir, rel_html_dir).strip() + " \\\n"
     return tags_str.strip("\\\n")
         
 
 def gendocs_html(dir, doxyfile, version, doc_dir, doc_tags):
-    tags_str = make_tags_str(dir, doc_tags)
-    print tags_str
-    doxycmd = GENERATE_HTML.format(doxyfile, version, doc_dir, tags_str)
+    tags_str = make_tags_str(dir, doc_dir, doc_tags)
+    doxycmd = GENERATE_HTML.format(version, doc_dir, tags_str)
     subprocess.call((doxycmd), shell=True, cwd=dir)
 
 def gendocs_tags(dir, doxyfile, version, doc_dir):
-    doxycmd = GENERATE_TAGS.format(doxyfile, version, doc_dir, doc_dir)
+    doxycmd = GENERATE_TAGS.format(version, doc_dir, doc_dir)
     subprocess.call((doxycmd), shell=True, cwd=dir)
 
 def main():
@@ -75,7 +76,7 @@ def main():
         if not os.path.isdir(doc_dir):
             os.makedirs(doc_dir)
         gendocs_tags(dir, "docs/Doxyfile", args.version, doc_dir)
-        doc_tags[dir] = DOC_TAG_DIR.format(doc_dir, doc_dir).strip()
+        doc_tags[dir] = doc_dir
 
     for dir in DOCS_DIRS:
         doc_dir = os.path.join(os.getcwd(), args.output, dir)
